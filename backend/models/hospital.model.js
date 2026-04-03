@@ -20,6 +20,23 @@ const hospitalSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    ECG: {
+      type: Number,
+      default: 0,
+    },
+     cardiac: {
+      type: Number,
+      default: 0,
+    },
+     oxygen_cylinder: {
+      type: Number,
+      default: 0,
+    },
+     bipap: {
+      type: Number,
+      default: 0,
+    },
+    
 
     specialists: [
       {
