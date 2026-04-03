@@ -1,19 +1,12 @@
-const express = require('express')
-const cors = require('cors')
+const express = require("express");
+const cors = require("cors");
+const dotenv = require("dotenv");
 
-const app = express()
+dotenv.config();
 
-// Middleware
-app.use(cors())
-app.use(express.json())
+const app = express();
 
-// Routes
-app.use('/api', require('./routes/hospital.routes'))
-app.use('/api', require('./routes/triage.routes'))
+app.use(cors());
+app.use(express.json());
 
-// Health check
-app.get('/', (req, res) => {
-  res.json({ message: 'HC03 Emergency Triage API Running ✅' })
-})
-
-module.exports = app
+module.exports = app;
