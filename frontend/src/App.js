@@ -44,43 +44,53 @@ function App() {
     setSelectedHospital(null);
 
     try {
-      // Mock network delay simulating Inference Engine
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const location = userLocation || { lat: 40.7128, lng: -74.0060 };
+      const bpRaw = data.bloodPressure || 'normal';
+      
+      const payload = {
+        SpO2: 95, 
+        Temperature: 98.6,
+        ChestPain: data.injuryType?.toLowerCase().includes('chest') ? 1 : 0,
+        InjuryType: data.injuryType || "General",
+        Unconscious: 0,
+        Diabetes: 0,
+        bp: bpRaw === 'low' ? 90 : bpRaw === 'high' ? 140 : 120,
+        BP_Risk: bpRaw.charAt(0).toUpperCase() + bpRaw.slice(1),
+        age: parseInt(data.age) || 30,
+        heartRate: parseInt(data.heartRate) || 80,
+        location: location,
+        scene_image: data.scene_image || null // Trigger Twist 1 Feature
+      };
 
-      const age = Number(data.age) || 30; // default to adult if missed
-      const hr = Number(data.heartRate);
-      const bp = data.bloodPressure.toLowerCase();
-      let level = 'Low';
-      let explanation = 'Vitals are stable.';
-      let action = 'Outpatient consultation recommended.';
+      const response = await fetch("http://localhost:5000/api/triage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setTriageResult({
+          level: result.decision.severity,
+          explanation: result.decision.reasoning,
+          action: `Assigned to ${result.decision.best_hospital}`
+        });
 
-      const isChild = age <= 12;
-      const hrHigh = isChild ? 150 : 110;
-      const hrCritical = isChild ? 170 : 120;
-
-      if (hr > hrHigh && bp === 'low') {
-        level = 'High';
-        explanation = `High risk because heart rate is critically elevated for ${isChild ? 'a child' : 'an adult'} (${hr} bpm) and BP is low, indicating possible shock.`;
-        action = 'Immediate ICU Admission Required';
-      } else if (hr > hrCritical || bp === 'high') {
-        level = 'High';
-        explanation = `High risk due to critical parameters for ${isChild ? 'a child' : 'an adult'} (HR: ${hr} bpm, BP: ${bp}), severe medical intervention is needed.`;
-        action = 'Immediate ER Admission';
-      } else if (hr > (isChild ? 130 : 100) || bp === 'low') {
-        level = 'Medium';
-        explanation = `Moderate risk due to elevated heart rate for ${isChild ? 'a child' : 'an adult'} (${hr} bpm) combined with ${bp} BP. Fluid administration advised.`;
-        action = 'Urgent Care Center Evaluation';
+        // Use actual routing arrays generated from maps & AI algorithms
+        setHospitals(result.hospitals.map((h, i) => ({
+          ...h,
+          id: h._id || String(i),
+          type: h.specialists?.includes("Trauma") ? "Level 1 Trauma" : "General Hospital",
+          distance: h.eta_minutes ? h.eta_minutes + " mins" : "? mins",
+          reasons: ["Computed ETA: " + (h.eta_minutes || '?') + " mins"]
+        })));
       } else {
-        explanation = `Low risk. Heart rate (${hr} bpm) and BP (${bp}) are within manageable levels for a ${age}-year-old.`;
-        action = 'Standard Walk-in Clinic Evaluation';
+        throw new Error(result.error || "Triage failed");
       }
-
-      setTriageResult({ level, explanation, action });
-
-      // Automatically fetch optimal hospitals 
-      fetchHospitals(level);
     } catch (error) {
       console.error("Error predicting:", error);
+      setTriageResult({ level: 'Error', explanation: 'Network Error: Make sure node server.js is running on Port 5000', action: 'Retry' });
     } finally {
       setLoading(false);
     }

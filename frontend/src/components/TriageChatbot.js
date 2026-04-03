@@ -12,6 +12,7 @@ const TriageChatbot = ({ onSubmit, loading, predictionResult }) => {
     { sender: 'bot', text: "Hello. I'm the AI Triage Assistant. What is the patient's age? (Or describe everything at once: e.g., '10 years old, heart rate 140, bp low')" }
   ]);
   const [inputValue, setInputValue] = useState('');
+  const [sceneImage, setSceneImage] = useState(null);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -55,7 +56,7 @@ const TriageChatbot = ({ onSubmit, loading, predictionResult }) => {
       const newFormData = { age, heartRate: hr, bloodPressure: bp, injuryType: userMessage };
       setFormData(newFormData);
       setStep(5);
-      onSubmit(newFormData);
+      onSubmit({ ...newFormData, scene_image: sceneImage });
       return;
     }
 
@@ -82,7 +83,7 @@ const TriageChatbot = ({ onSubmit, loading, predictionResult }) => {
       newFormData.injuryType = userMessage;
       setMessages(prev => [...prev, { sender: 'bot', text: "Thank you. Submitting patient data to Medical Decision Engine..." }]);
       newStep = 5;
-      onSubmit(newFormData);
+      onSubmit({ ...newFormData, scene_image: sceneImage });
     } 
 
     setStep(newStep);
@@ -127,14 +128,41 @@ const TriageChatbot = ({ onSubmit, loading, predictionResult }) => {
           onChange={(e) => setInputValue(e.target.value)}
           disabled={loading || step === 5}
         />
-        <button 
-          type="submit" 
-          className="btn-primary" 
-          style={{ width: 'auto', padding: '12px 20px' }}
-          disabled={loading || step === 5 || !inputValue.trim()}
-        >
-          Send
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <label 
+            className="btn-secondary" 
+            style={{ padding: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+            title="Take Photo of Scene"
+          >
+            📷
+            <input 
+              type="file" 
+              accept="image/*" 
+              capture="environment" 
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files[0];
+                if (file) {
+                  const reader = new FileReader();
+                  reader.onloadend = () => {
+                    setSceneImage(reader.result);
+                    setMessages(prev => [...prev, { sender: 'user', text: '[📸 Scene Image Attached]' }]);
+                  };
+                  reader.readAsDataURL(file);
+                }
+              }}
+              disabled={loading || step === 5}
+            />
+          </label>
+          <button 
+            type="submit" 
+            className="btn-primary" 
+            style={{ width: 'auto', padding: '12px 20px' }}
+            disabled={loading || step === 5 || (!inputValue.trim() && step !== 5)}
+          >
+            Send
+          </button>
+        </div>
       </form>
     </div>
   );
