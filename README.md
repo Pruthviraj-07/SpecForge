@@ -81,30 +81,6 @@ The system leverages **AI-driven decision logic and real-time data** to improve 
 
 ---
 
-## 🏗️ Project Structure
+## System Output
 
-SpecForge/
-│
-├── backend/
-│ ├── controllers/ # Business logic (triage, hospital, auth)
-│ ├── data/ # Seed or static data
-│ ├── middleware/ # Auth & custom middleware
-│ ├── models/ # Mongoose schemas (Patient, Hospital, Admin)
-│ ├── routes/ # API routes (triage, hospital, auth)
-│ ├── services/ # External services (AI, maps, ML API)
-│ ├── .env # Environment variables
-│ ├── app.js # Express app config
-│ ├── server.js # Entry point (server + socket setup)
-│ ├── package.json
-│ └── package-lock.json
-│
-├── frontend/
-│ ├── node_modules/
-│ ├── public/ # Static files
-│ ├── src/ # React source code (components, pages)
-│ ├── .gitignore
-│ ├── package.json
-│ └── package-lock.json
-│
-├── .gitignore
-├── README.md
+![Triage Result](./screenshots/output.png)
