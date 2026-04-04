@@ -81,6 +81,6 @@ The system leverages **AI-driven decision logic and real-time data** to improve 
 
 ---
 
-## System Output
+## File Structure
 
-![Triage Result](./screenshots/output.png)
+![Triage Result](./screenshots/image.png)
