@@ -1,94 +1,173 @@
-import React from 'react';
+import React from 'react'
 
 const HospitalList = ({ hospitals, selectedHospital, onSelectHospital, loadingSelection }) => {
-  if (!hospitals || hospitals.length === 0) return null;
+  if (!hospitals || hospitals.length === 0) return null
 
   return (
-    <div className="glass-panel animate-slide-up-delay-2" style={{ padding: '24px' }}>
-      <h2 style={{ marginBottom: '16px', fontSize: '1.5rem', fontWeight: 600 }}>
-        Hospital Optimization Engine
-      </h2>
-      
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        {hospitals.map(hospital => {
-          const isSelected = selectedHospital && selectedHospital.id === hospital.id;
+    <div className="glass fade-up-2" style={{ padding: '20px' }}>
+
+      {/* Header */}
+      <div style={{
+        marginBottom: '16px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <span style={{
+          fontFamily: 'Rajdhani, sans-serif',
+          fontWeight: 700,
+          fontSize: '0.95rem',
+          letterSpacing: '1px',
+          textTransform: 'uppercase',
+          color: 'var(--text-secondary)'
+        }}>
+          🏥 Hospital Routing Engine
+        </span>
+        <span style={{
+          fontSize: '0.75rem',
+          color: 'var(--text-secondary)',
+          fontFamily: 'JetBrains Mono, monospace'
+        }}>
+          {hospitals.length} facilities evaluated
+        </span>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {hospitals.map((hospital, idx) => {
+          const isSelected = selectedHospital && selectedHospital.name === hospital.name
+          const isDispatched = selectedHospital && selectedHospital.name === hospital.name && selectedHospital.details
+
           return (
-            <div 
-              key={hospital.id}
+            <div
+              key={idx}
               style={{
                 padding: '16px',
                 borderRadius: '12px',
-                background: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'var(--glass-bg)',
-                border: `1px solid ${isSelected ? 'var(--accent-blue)' : 'var(--glass-border)'}`,
-                display: 'flex',
-                justifyContent: 'space-between',
-                flexDirection: 'column',
+                background: isSelected
+                  ? 'rgba(59,130,246,0.08)'
+                  : 'rgba(255,255,255,0.02)',
+                border: `1px solid ${isSelected ? 'rgba(59,130,246,0.35)' : 'var(--glass-border)'}`,
                 transition: 'all 0.3s ease'
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              {/* Hospital Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
                 <div>
-                  <h3 style={{ fontSize: '1.2rem', marginBottom: '4px', color: isSelected ? 'var(--accent-blue)' : 'var(--text-primary)' }}>
-                    {hospital.name}
-                  </h3>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '8px' }}>
-                    {hospital.distance} • {hospital.type}
-                  </p>
+                  <div style={{
+                    fontWeight: 700,
+                    fontSize: '1rem',
+                    color: isSelected ? '#60a5fa' : 'var(--text-primary)',
+                    marginBottom: '4px'
+                  }}>
+                    {isSelected && '✅ '}{hospital.name}
+                  </div>
+                  <div style={{
+                    fontSize: '0.8rem',
+                    color: 'var(--text-secondary)',
+                    fontFamily: 'JetBrains Mono, monospace'
+                  }}>
+                    {hospital.distance} • ETA {hospital.eta} min
+                  </div>
                 </div>
-                <div>
-                  {isSelected ? (
-                    <span style={{
-                      background: 'var(--accent-blue)',
-                      color: 'white',
-                      padding: '6px 12px',
-                      borderRadius: '20px',
-                      fontSize: '0.8rem',
-                      fontWeight: 'bold',
-                      whiteSpace: 'nowrap',
-                      boxShadow: '0 0 8px var(--accent-blue)'
-                    }}>
-                      🚑 Dispatching Route...
-                    </span>
-                  ) : (
-                    <button 
-                      className="btn-secondary"
-                      disabled={loadingSelection}
-                      onClick={() => onSelectHospital(hospital.id)}
-                    >
-                      Route Here
-                    </button>
-                  )}
-                </div>
+
+                {isSelected ? (
+                  <span style={{
+                    background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                    color: 'white',
+                    padding: '6px 14px',
+                    borderRadius: '20px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap',
+                    boxShadow: '0 0 12px rgba(59,130,246,0.4)'
+                  }}>
+                    🚑 {isDispatched ? 'Dispatched' : 'Selected'}
+                  </span>
+                ) : (
+                  <button
+                    className="btn-secondary"
+                    style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+                    disabled={loadingSelection}
+                    onClick={() => onSelectHospital(hospital.id)}
+                  >
+                    Route Here
+                  </button>
+                )}
               </div>
 
-              {/* Engine Reasons Display */}
+              {/* Resource Stats */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: '6px',
+                marginBottom: '10px'
+              }}>
+                {[
+                  { label: 'ICU', value: hospital.icu, warn: hospital.icu === 0 },
+                  { label: 'Vent', value: hospital.ventilator, warn: hospital.ventilator === 0 },
+                  { label: 'ECG', value: hospital.ECG || '—' },
+                  { label: 'BiPAP', value: hospital.bipap || '—' },
+                ].map((stat, i) => (
+                  <div key={i} style={{
+                    background: stat.warn ? 'rgba(239,68,68,0.08)' : 'rgba(0,0,0,0.2)',
+                    border: `1px solid ${stat.warn ? 'rgba(239,68,68,0.2)' : 'var(--glass-border)'}`,
+                    borderRadius: '8px',
+                    padding: '8px',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{
+                      fontSize: '1.1rem',
+                      fontWeight: 700,
+                      fontFamily: 'JetBrains Mono, monospace',
+                      color: stat.warn ? '#ef4444' : 'var(--text-primary)'
+                    }}>
+                      {stat.value}
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      {stat.label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Reasons */}
               <div style={{
                 background: 'rgba(0,0,0,0.2)',
-                padding: '12px',
                 borderRadius: '8px',
-                marginTop: '8px'
+                padding: '10px 12px'
               }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Optimization Features:
-                </span>
-                <ul style={{ margin: '6px 0 0 20px', fontSize: '0.85rem', color: 'var(--text-primary)', opacity: 0.9 }}>
-                  {hospital.reasons.map((reason, idx) => (
-                    <li key={idx} style={{ marginBottom: '4px' }}>{reason}</li>
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px', fontWeight: 600 }}>
+                  Optimization Notes
+                </div>
+                <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  {hospital.reasons?.map((reason, i) => (
+                    <li key={i} style={{ fontSize: '0.83rem', color: 'var(--text-primary)', opacity: 0.85 }}>
+                      {reason}
+                    </li>
                   ))}
                 </ul>
               </div>
 
-              {isSelected && hospital.details && (
-                <p style={{ color: 'var(--accent-blue)', fontSize: '0.9rem', marginTop: '12px', paddingLeft: '8px', borderLeft: '3px solid var(--accent-blue)' }}>
+              {/* Dispatched confirmation */}
+              {isDispatched && hospital.details && (
+                <div style={{
+                  marginTop: '10px',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  background: 'rgba(59,130,246,0.08)',
+                  borderLeft: '3px solid #3b82f6',
+                  fontSize: '0.85rem',
+                  color: '#60a5fa'
+                }}>
                   ✅ {hospital.details}
-                </p>
+                </div>
               )}
             </div>
-          );
+          )
         })}
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default HospitalList;
+export default HospitalList
