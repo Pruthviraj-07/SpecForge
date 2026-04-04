@@ -66,6 +66,9 @@ function App() {
         symptoms: Array.isArray(data.symptoms)
           ? data.symptoms
           : [data.injuryType || 'general'],
+        scene_image: data.scene_image,
+        language: data.language || 'English',
+        context: data.context || '',
         location
       }
 
@@ -83,6 +86,7 @@ function App() {
             ? 'Medium'
             : 'Low',
           explanation: decision.reasoning,
+          first_aid: decision.first_aid || [],
           action: `Go to ${decision.best_hospital} — ETA ${decision.eta_minutes} mins`,
           decision,
           rejected: decision.rejected_hospitals

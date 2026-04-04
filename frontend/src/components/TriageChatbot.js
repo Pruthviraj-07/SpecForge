@@ -18,7 +18,11 @@ const TriageChatbot = ({ onSubmit, loading, predictionResult }) => {
   ]);
   const [inputValue, setInputValue]     = useState('');
   const [sceneImage, setSceneImage]     = useState(null);
+  const [showCamera, setShowCamera]     = useState(false);
+  const [speechLang, setSpeechLang]     = useState('en-IN');
   const messagesEndRef                  = useRef(null);
+  const videoRef                        = useRef(null);
+  const mediaStreamRef                  = useRef(null);
   const recognitionRef                  = useRef(null);
   const handleVoiceSubmitRef            = useRef(null);
   const lastProcessedResultRef          = useRef(null);
@@ -27,8 +31,9 @@ const TriageChatbot = ({ onSubmit, loading, predictionResult }) => {
   const speak = (text) => {
     const speech = new SpeechSynthesisUtterance(text);
     const voices = window.speechSynthesis.getVoices();
-    const indianVoice = voices.find(v => v.lang === 'en-IN');
-    if (indianVoice) speech.voice = indianVoice;
+    speech.lang = speechLang;
+    const requestedVoice = voices.find(v => v.lang === speechLang) || voices.find(v => v.lang.startsWith(speechLang.split('-')[0]));
+    if (requestedVoice) speech.voice = requestedVoice;
     speech.rate = 1;
     window.speechSynthesis.speak(speech);
   };
@@ -36,13 +41,10 @@ const TriageChatbot = ({ onSubmit, loading, predictionResult }) => {
   // Extract InjuryType from free text — maps to valid ML labels
   const extractInjuryType = (text = '') => {
     const t = text.toLowerCase();
-    if (t.includes('burn'))                                           return 'Burn';
-    if (t.includes('cardiac') || t.includes('heart') ||
-        t.includes('chest'))                                          return 'Cardiac';
-    if (t.includes('fracture') || t.includes('bone') ||
-        t.includes('break'))                                          return 'Fracture';
-    if (t.includes('trauma') || t.includes('accident') ||
-        t.includes('crash'))                                          return 'Trauma';
+    if (t.includes('burn')) return 'Burn';
+    if (t.includes('cardiac') || t.includes('chest') || /\bheart\b(?!\s*-?\s*rate)/.test(t)) return 'Cardiac';
+    if (t.includes('fracture') || t.includes('bone') || t.includes('break')) return 'Fracture';
+    if (t.includes('trauma') || t.includes('accident') || t.includes('crash')) return 'Trauma';
     return 'None';
   };
 
@@ -73,6 +75,7 @@ const TriageChatbot = ({ onSubmit, loading, predictionResult }) => {
                        .toLowerCase().includes('diabetes') ? 1 : 0,
       context,
       scene_image:   sceneImage || null,
+      language:      speechLang === 'hi-IN' ? 'Hindi' : speechLang === 'mr-IN' ? 'Marathi' : 'English'
     };
 
     console.log('📤 Submitting to engine:', payload);
@@ -111,6 +114,18 @@ const TriageChatbot = ({ onSubmit, loading, predictionResult }) => {
       }
     };
   }, []);
+
+  // ── Start listening with dynamic language ──────────────────────────────────
+  const startListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.lang = speechLang;
+      try {
+        recognitionRef.current.start();
+      } catch (err) {
+        console.error("Microphone already active or blocked:", err);
+      }
+    }
+  };
 
   // ── Show triage result in chat ─────────────────────────────────────────────
   useEffect(() => {
@@ -158,6 +173,91 @@ const TriageChatbot = ({ onSubmit, loading, predictionResult }) => {
 
     speak('Analyzing patient condition. Please wait.');
     submitToEngine(data, text);
+  };
+
+  // ── WebRTC Camera Capture ──────────────────────────────────────────────────
+  const startWebRTC = async () => {
+    setShowCamera(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      mediaStreamRef.current = stream;
+    } catch (err) {
+      console.error("Camera access denied or unavailable", err);
+      alert("Cannot access camera. Please check browser permissions.");
+      setShowCamera(false);
+    }
+  };
+
+  const stopWebRTC = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+    }
+    setShowCamera(false);
+  };
+
+  const captureWebRTC = () => {
+    if (!videoRef.current) return;
+    const canvas = document.createElement('canvas');
+    const video = videoRef.current;
+    
+    let width = video.videoWidth;
+    let height = video.videoHeight;
+    const MAX = 400; // Reduce from 800 to 400 to optimize LLM vision patches
+    if (width > height) {
+      if (width > MAX) { height *= MAX / width; width = MAX; }
+    } else {
+      if (height > MAX) { width *= MAX / height; height = MAX; }
+    }
+    
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, width, height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    
+    setSceneImage(dataUrl);
+    setMessages(prev => [...prev, { sender: 'user', text: '[📸 Scene Image Attached]' }]);
+    
+    stopWebRTC();
+  };
+
+  // ── Image Upload ───────────────────────────────────────────────────────────
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+      const MAX = 400; // Reduce from 800 to 400 to optimize LLM vision patches
+      if (width > height) {
+        if (width > MAX) {
+          height *= MAX / width;
+          width = MAX;
+        }
+      } else {
+        if (height > MAX) {
+          width *= MAX / height;
+          height = MAX;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      const resizedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      setSceneImage(resizedDataUrl);
+      setMessages(prev => [
+        ...prev,
+        { sender: 'user', text: '[📸 Scene Image Attached]' }
+      ]);
+    };
+    img.src = URL.createObjectURL(file);
+    e.target.value = null; // allow selecting the same file again
   };
 
   // ── Text send (step-by-step or smart extraction) ───────────────────────────
@@ -267,9 +367,34 @@ const TriageChatbot = ({ onSubmit, loading, predictionResult }) => {
 
   return (
     <div className="glass-panel animate-slide-up" style={{
+      position: 'relative',
       display: 'flex', flexDirection: 'column',
       height: '450px', marginBottom: '24px'
     }}>
+      {/* 📸 Built-in WebRTC Camera Modal */}
+      {showCamera && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          background: '#000', zIndex: 50, borderRadius: '16px',
+          display: 'flex', flexDirection: 'column'
+        }}>
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            style={{ flex: 1, width: '100%', objectFit: 'cover', borderRadius: '16px 16px 0 0' }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', padding: '16px', background: '#111', borderRadius: '0 0 16px 16px' }}>
+            <button type="button" onClick={stopWebRTC} className="btn-secondary" style={{ padding: '8px 16px' }}>
+              Cancel
+            </button>
+            <button type="button" onClick={captureWebRTC} className="btn-primary" style={{ padding: '8px 24px' }}>
+              📸 Capture
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{
         padding: '16px',
@@ -348,6 +473,22 @@ const TriageChatbot = ({ onSubmit, loading, predictionResult }) => {
         />
 
         <div style={{ display: 'flex', gap: '8px' }}>
+          {/* 🌐 Speech Language Selector */}
+          {SpeechRecognition && (
+            <select 
+              className="input-glass"
+              style={{ width: '80px', padding: '0 8px', fontSize: '0.8rem', cursor: 'pointer' }}
+              value={speechLang}
+              onChange={(e) => setSpeechLang(e.target.value)}
+              title="Speech Language"
+              disabled={loading || step === 6}
+            >
+              <option value="en-IN">English</option>
+              <option value="hi-IN">हिंदी</option>
+              <option value="mr-IN">मराठी</option>
+            </select>
+          )}
+
           {/* 🎤 Voice button */}
           {SpeechRecognition && (
             <button
@@ -356,37 +497,36 @@ const TriageChatbot = ({ onSubmit, loading, predictionResult }) => {
               style={{ padding: '12px' }}
               title="Voice Input"
               disabled={loading || step === 6}
-              onClick={() => recognitionRef.current?.start()}
+              onClick={startListening}
             >
               🎤
             </button>
           )}
 
           {/* 📷 Camera button */}
+          <button
+            type="button"
+            className="btn-secondary"
+            style={{ padding: '12px' }}
+            title="Open Camera"
+            onClick={startWebRTC}
+            disabled={loading || step === 6}
+          >
+            {sceneImage ? '📸' : '📷'}
+          </button>
+
+          {/* 🖼️ Gallery button */}
           <label
             className="btn-secondary"
             style={{ padding: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-            title="Take Photo of Scene"
+            title="Upload from Gallery"
           >
-            {sceneImage ? '📸' : '📷'}
+            🖼️
             <input
               type="file"
               accept="image/*"
-              capture="environment"
               style={{ display: 'none' }}
-              onChange={(e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                  setSceneImage(reader.result);
-                  setMessages(prev => [
-                    ...prev,
-                    { sender: 'user', text: '[📸 Scene Image Attached]' }
-                  ]);
-                };
-                reader.readAsDataURL(file);
-              }}
+              onChange={handleImageUpload}
               disabled={loading || step === 6}
             />
           </label>

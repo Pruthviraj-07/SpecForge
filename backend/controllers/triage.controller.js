@@ -2,6 +2,7 @@ const Hospital = require("../models/hospital.model");
 const Patient = require("../models/patient.model");
 const { getAIDecision } = require("../services/groq.service");
 const { getDistances } = require("../services/maps.service");
+const { uploadBase64Image } = require("../services/cloudinary.service");
 
 // Single patient triage
 const findBestHospital = async (req, res) => {
@@ -17,7 +18,16 @@ const findBestHospital = async (req, res) => {
       hospitals
     );
 
-    // 3. Get AI decision from Gemini
+    // 2b. Offload heavy base64 image to Cloudinary and return tiny URL
+    if (patientData.scene_image && patientData.scene_image.startsWith("data:image")) {
+      console.log("Uploading scene image to Cloudinary for Groq processing...");
+      const cloudUrl = await uploadBase64Image(patientData.scene_image);
+      if (cloudUrl) {
+        patientData.scene_image = cloudUrl; // Replace base64 bulk string with clean URL
+      }
+    }
+
+    // 3. Get AI decision from Gemini (Groq)
     const decision = await getAIDecision(patientData, hospitalsWithDistance);
 
     // 4. Save patient record

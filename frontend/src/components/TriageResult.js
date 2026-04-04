@@ -65,6 +65,26 @@ const TriageResult = ({ result }) => {
         </p>
       </div>
 
+      {result.first_aid && result.first_aid.length > 0 && (
+        <div style={{ 
+          background: 'rgba(234, 179, 8, 0.1)', 
+          borderLeft: '4px solid #eab308',
+          padding: '16px', 
+          borderRadius: '4px',
+          marginBottom: '16px',
+          textAlign: 'left'
+        }}>
+          <h4 style={{ color: '#eab308', marginBottom: '8px', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            ⚕️ Immediate First Aid Steps
+          </h4>
+          <ul style={{ color: 'var(--text-primary)', fontSize: '0.90rem', lineHeight: 1.5, margin: 0, paddingLeft: '20px' }}>
+            {result.first_aid.map((step, i) => (
+              <li key={i} style={{ marginBottom: '4px' }}>{step}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div style={{
          display: 'inline-block',
          background: 'rgba(0,0,0,0.3)',

@@ -2,6 +2,7 @@ import React, { useEffect } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
+import 'leaflet-routing-machine'
 
 // Fix default icons
 delete L.Icon.Default.prototype._getIconUrl
@@ -35,6 +36,50 @@ function ChangeView({ center, zoom }) {
     if (center) map.setView(center, zoom, { animate: true })
   }, [center, zoom, map])
   return null
+}
+
+function RoutingMachine({ source, destination }) {
+  const [routePath, setRoutePath] = React.useState(null);
+
+  useEffect(() => {
+    if (!source || !destination) {
+      setRoutePath(null);
+      return;
+    }
+
+    let isMounted = true;
+
+    const fetchRoute = async () => {
+      try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${source.lng},${source.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson`;
+        const resp = await fetch(url);
+        const data = await resp.json();
+
+        if (isMounted && data.routes && data.routes.length > 0) {
+          // OSRM returns coordinates in [lng, lat] format, Leaflet needs [lat, lng]
+          const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+          setRoutePath(coords);
+        }
+      } catch (err) {
+        console.error("OSRM Routing Error:", err);
+      }
+    };
+
+    fetchRoute();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [source, destination]);
+
+  if (!routePath) return null;
+
+  return (
+    <Polyline 
+      positions={routePath} 
+      pathOptions={{ color: '#3b82f6', weight: 5, opacity: 0.9 }} 
+    />
+  );
 }
 
 const HospitalMap = ({ hospitals, selectedHospital, userLocation }) => {
@@ -120,25 +165,15 @@ const HospitalMap = ({ hospitals, selectedHospital, userLocation }) => {
                   </div>
                 </Popup>
               </Marker>
-
-              {/* Route line from ambulance to selected hospital */}
-              {userLocation && isSelected && (
-                <Polyline
-                  positions={[
-                    [userLocation.lat, userLocation.lng],
-                    [hospital.lat, hospital.lng]
-                  ]}
-                  pathOptions={{
-                    color: '#3b82f6',
-                    weight: 4,
-                    dashArray: '8, 12',
-                    opacity: 0.8
-                  }}
-                />
-              )}
             </React.Fragment>
           )
         })}
+
+        {/* Global Route line from ambulance to selected hospital */}
+        <RoutingMachine
+          source={userLocation}
+          destination={selectedHospital}
+        />
       </MapContainer>
     </div>
   )
